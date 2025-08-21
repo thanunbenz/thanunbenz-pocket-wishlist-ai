@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokemon TCG Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background: #ffffff;
+            color: #000000;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .minimal-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: all 0.2s ease;
+        }
+        
+        .minimal-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .btn-primary {
+            background: #000000;
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            background: #333333;
+            transform: translateY(-1px);
+        }
+        
+        .upload-area {
+            border: 2px dashed #e5e5e5;
+            border-radius: 8px;
+            padding: 48px;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #999999;
+            background: #fafafa;
+        }
+        
+        .upload-area.dragover {
+            border-color: #000000;
+            background: #f5f5f5;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #000000;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .best-set {
+            background: linear-gradient(135deg, #000000 0%, #333333 100%);
+            color: #ffffff;
+            padding: 32px;
+            border-radius: 12px;
+            margin: 30px 0;
+        }
+        
+        .set-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .set-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .set-card.best {
+            border: 2px solid #000000;
+            background: #fafafa;
+        }
+        
+        .rarity-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .best-set-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+        
+        .best-set-card-item {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 12px;
+            transition: all 0.2s ease;
+            color: #ffffff;
+        }
+        
+        .best-set-card-item:hover {
+            background: rgba(255,255,255,0.15);
+            transform: translateY(-2px);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #000000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            text-align: left;
+            padding: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e5e5e5;
+            transition: background 0.2s ease;
+        }
+        
+        th:hover {
+            background: #f5f5f5;
+        }
+        
+        td {
+            padding: 12px;
+            font-size: 14px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        
+        tr:hover {
+            background: #fafafa;
+        }
+        
+        h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+        }
+        
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        
+        .subtitle {
+            color: #666666;
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 60px;">
+            <h1>Pokemon TCG Analyzer</h1>
+            <p class="subtitle">วิเคราะห์ Wishlist การ์ดโปเกมอนเพื่อหา Set ที่คุ้มค่าที่สุด</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="minimal-card">
+            <div class="upload-area" id="uploadArea">
+                <div style="margin-bottom: 16px;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; color: #999999;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                </div>
+                <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">อัปโหลดไฟล์ Excel</h3>
+                <p style="color: #666666; font-size: 14px; margin-bottom: 20px;">เลือกไฟล์ .xlsx ที่มี columns: Set, Number, Name, Rarity, RarityCode, Packs, DateAdded</p>
+                <input type="file" accept=".xlsx,.xls" id="fileInput" class="hidden">
+                <button onclick="document.getElementById('fileInput').click()" class="btn-primary">
+                    เลือกไฟล์
+                </button>
+            </div>
+            
+            <!-- Loading -->
+            <div id="loading" class="hidden" style="text-align: center; margin-top: 20px;">
+                <div class="loading"></div>
+                <p style="margin-top: 12px; color: #666666; font-size: 14px;">กำลังวิเคราะห์...</p>
+            </div>
+            
+            <!-- Error -->
+            <div id="error" class="hidden" style="margin-top: 20px; padding: 16px; background: #fff5f5; border: 1px solid #ffdddd; border-radius: 6px; color: #cc0000; font-size: 14px;"></div>
+        </div>
+
+        <!-- Analysis Results -->
+        <div id="results" class="hidden">
+            <!-- Summary Stats -->
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalCards">0</div>
+                    <div class="stat-label">การ์ดทั้งหมด</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalSets">0</div>
+                    <div class="stat-label">จำนวน Sets</div>
+                </div>
+                <div class="stat-item">
+                    <div id="bestSetName" style="min-height: 60px; display: flex; align-items: center; justify-content: center;">-</div>
+                    <div class="stat-label">Set ที่คุ้มที่สุด</div>
+                </div>
+            </div>
+
+            <!-- Best Set Recommendation -->
+            <div class="best-set" id="topRecommendation">
+                <h2 style="color: #ffffff; margin-bottom: 8px;">
+                    <span style="font-size: 28px;">🏆</span> 
+                    <span id="bestSetTitle">Set ที่แนะนำ</span>
+                </h2>
+                <p style="opacity: 0.9; margin-bottom: 24px;">Set นี้ให้ความคุ้มค่าสูงสุดจากการ์ดที่คุณต้องการ</p>
+                
+                <div class="stats-grid" style="margin: 20px 0;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 36px; font-weight: 700;" id="topCards">0</div>
+                        <div style="font-size: 12px; opacity: 0.8;">การ์ดทั้งหมด</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 36px; font-weight: 700;" id="topPacks">0</div>
+                        <div style="font-size: 12px; opacity: 0.8;">ประเภท Pack</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 36px; font-weight: 700;" id="topEfficiency">0</div>
+                        <div style="font-size: 12px; opacity: 0.8;">การ์ด/Pack</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 36px; font-weight: 700;" id="topScore">0</div>
+                        <div style="font-size: 12px; opacity: 0.8;">คะแนนคุ้มค่า</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <p style="font-weight: 600; margin-bottom: 8px;">Packs ที่ต้องเปิด:</p>
+                    <p id="topPacksList" style="font-size: 18px;">-</p>
+                </div>
+                
+                <!-- Cards in Best Set -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <p style="font-weight: 600; margin-bottom: 12px;">การ์ดที่อยู่ใน Set นี้:</p>
+                    <div id="bestSetCards" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Cards will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- All Sets Analysis -->
+            <div class="minimal-card">
+                <h2>📊 การวิเคราะห์ทุก Sets</h2>
+                <p style="color: #666666; font-size: 14px; margin-bottom: 20px;">เรียงตามความคุ้มค่า (สูงสุด → ต่ำสุด)</p>
+                
+                <div id="setAnalysis">
+                    <!-- Set analysis will be populated here -->
+                </div>
+            </div>
+
+            <!-- Raw Data Table -->
+            <div class="minimal-card">
+                <h2>📋 ข้อมูลการ์ดทั้งหมด</h2>
+                <div style="overflow-x: auto; margin-top: 20px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="cursor: pointer; user-select: none;" onclick="sortTable('Set')">
+                                    Set <span id="sort-Set" style="font-size: 10px;">▲</span>
+                                </th>
+                                <th style="cursor: pointer; user-select: none;" onclick="sortTable('Number')">
+                                    Number <span id="sort-Number" style="font-size: 10px; opacity: 0.3;">▼</span>
+                                </th>
+                                <th style="cursor: pointer; user-select: none;" onclick="sortTable('Name')">
+                                    Name <span id="sort-Name" style="font-size: 10px; opacity: 0.3;">▼</span>
+                                </th>
+                                <th style="cursor: pointer; user-select: none;" onclick="sortTable('Rarity')">
+                                    Rarity <span id="sort-Rarity" style="font-size: 10px; opacity: 0.3;">▼</span>
+                                </th>
+                                <th style="cursor: pointer; user-select: none;" onclick="sortTable('Packs')">
+                                    Pack <span id="sort-Packs" style="font-size: 10px; opacity: 0.3;">▼</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTable">
+                            <!-- Table data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let analysisData = null;
+        let currentSort = { column: 'Set', direction: 'asc' };
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showLoading(true);
+            hideError();
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                        header: ["Set", "Number", "Name", "Rarity", "RarityCode", "Packs", "DateAdded"],
+                        range: 1
+                    });
+
+                    analyzeData(jsonData);
+                } catch (err) {
+                    showError('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err.message);
+                } finally {
+                    showLoading(false);
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function analyzeData(cardData) {
+            // สร้าง setAnalysis
+            const setAnalysis = {};
+            
+            cardData.forEach(card => {
+                if (!setAnalysis[card.Set]) {
+                    setAnalysis[card.Set] = {
+                        count: 0,
+                        packs: new Set(),
+                        rarities: {},
+                        cards: []
+                    };
+                }
+                
+                setAnalysis[card.Set].count++;
+                setAnalysis[card.Set].packs.add(card.Packs);
+                
+                if (!setAnalysis[card.Set].rarities[card.Rarity]) {
+                    setAnalysis[card.Set].rarities[card.Rarity] = 0;
+                }
+                setAnalysis[card.Set].rarities[card.Rarity]++;
+                
+                setAnalysis[card.Set].cards.push({
+                    number: card.Number,
+                    name: card.Name,
+                    rarity: card.Rarity,
+                    pack: card.Packs
+                });
+            });
+
+            // คำนวณความคุ้มค่า
+            const valueAnalysis = [];
+            Object.entries(setAnalysis).forEach(([set, info]) => {
+                const packsNeeded = info.packs.size;
+                const cardsPerPack = info.count / packsNeeded;
+                const highValueCards = (info.rarities['Special Art Rare'] || 0) + 
+                                     (info.rarities['Double Rare'] || 0) +
+                                     (info.rarities['Super Rare'] || 0) * 0.5;
+                
+                // ใช้ชื่อจาก Packs field เป็นชื่อ Set
+                const packsArray = Array.from(info.packs);
+                const setFullName = packsArray.join(', ');
+                
+                valueAnalysis.push({
+                    set: set,
+                    setFullName: setFullName,
+                    totalCards: info.count,
+                    packsNeeded: packsNeeded,
+                    cardsPerPack: cardsPerPack,
+                    packs: packsArray,
+                    highValueCards: highValueCards,
+                    efficiencyScore: cardsPerPack * 10 + highValueCards * 2,
+                    rarityBreakdown: info.rarities,
+                    cards: info.cards
+                });
+            });
+
+            valueAnalysis.sort((a, b) => b.efficiencyScore - a.efficiencyScore);
+
+            analysisData = {
+                totalCards: cardData.length,
+                setAnalysis: setAnalysis,
+                valueAnalysis: valueAnalysis,
+                topChoice: valueAnalysis[0],
+                rawData: cardData
+            };
+
+            displayResults();
+        }
+
+        function displayResults() {
+            if (!analysisData) return;
+
+            // Show results section
+            document.getElementById('results').classList.remove('hidden');
+
+            // Update summary cards
+            document.getElementById('totalCards').textContent = analysisData.totalCards;
+            document.getElementById('totalSets').textContent = analysisData.valueAnalysis.length;
+            document.getElementById('bestSetName').innerHTML = `
+                <div style="font-size: 20px; line-height: 1.2;">
+                    <div style="font-weight: 700;">${analysisData.topChoice.set} - ${analysisData.topChoice.setFullName}</div>
+                </div>
+            `;
+
+            // Update top recommendation
+            const top = analysisData.topChoice;
+            document.getElementById('bestSetTitle').textContent = `Set ${top.set} - ${top.setFullName}`;
+            document.getElementById('topCards').textContent = top.totalCards;
+            document.getElementById('topPacks').textContent = top.packsNeeded;
+            document.getElementById('topEfficiency').textContent = top.cardsPerPack.toFixed(1);
+            document.getElementById('topScore').textContent = top.efficiencyScore.toFixed(0);
+            document.getElementById('topPacksList').textContent = top.packs.join(', ');
+
+            // Display best set cards
+            displayBestSetCards();
+
+            // Update detailed analysis
+            displaySetAnalysis();
+
+            // Update data table
+            displayDataTable();
+        }
+
+        function displayBestSetCards() {
+            const container = document.getElementById('bestSetCards');
+            const topSet = analysisData.topChoice;
+            
+            if (!topSet || !topSet.cards || topSet.cards.length === 0) {
+                container.innerHTML = '<p style="color: rgba(255,255,255,0.7); text-align: center;">ไม่พบข้อมูลการ์ด</p>';
+                return;
+            }
+
+            // จัดกลุ่มการ์ดตาม rarity
+            const cardsByRarity = {};
+            topSet.cards.forEach(card => {
+                if (!cardsByRarity[card.rarity]) {
+                    cardsByRarity[card.rarity] = [];
+                }
+                cardsByRarity[card.rarity].push(card);
+            });
+
+            // เรียงลำดับ rarity
+            const rarityOrder = ['Crown Rare', 'Immersive Rare', 'Shiny Super Rare', 'Shiny', 'Special Art Rare', 'Double Rare', 'Super Rare', 'Art Rare', 'Rare', 'Uncommon', 'Common'];
+            
+            container.innerHTML = '<div class="best-set-cards-grid">';
+            
+            rarityOrder.forEach(rarity => {
+                if (cardsByRarity[rarity]) {
+                    cardsByRarity[rarity].forEach(card => {
+                        const cardDiv = document.createElement('div');
+                        cardDiv.className = 'best-set-card-item';
+                        cardDiv.innerHTML = `
+                            <div style="font-weight: 600; margin-bottom: 4px;">#${card.number}</div>
+                            <div style="margin-bottom: 6px;">${card.name}</div>
+                            <div style="font-size: 10px; opacity: 0.9; padding: 2px 6px; background: ${card.rarity === 'Shiny Super Rare' ? 'linear-gradient(to right, #e9d5ff, #fbcfe8, #fef3c7)' : getRarityColor(card.rarity)}; color: ${getRarityTextColor(card.rarity)}; border-radius: 3px; display: inline-block;">
+                                ${card.rarity}
+                            </div>
+                        `;
+                        container.firstChild.appendChild(cardDiv);
+                    });
+                }
+            });
+            
+            container.innerHTML += '</div>';
+        }
+
+        function displaySetAnalysis() {
+            const container = document.getElementById('setAnalysis');
+            container.innerHTML = '';
+
+            analysisData.valueAnalysis.forEach((set, index) => {
+                const setDiv = document.createElement('div');
+                setDiv.className = `set-card ${index === 0 ? 'best' : ''}`;
+
+                const rarityBadges = Object.entries(set.rarityBreakdown)
+                    .map(([rarity, count]) => 
+                        `<span class="rarity-badge" style="background: ${rarity === 'Shiny Super Rare' ? 'linear-gradient(to right, #e9d5ff, #fbcfe8, #fef3c7)' : getRarityColor(rarity)}; color: ${getRarityTextColor(rarity)}">
+                            ${rarity}: ${count}
+                        </span>`
+                    ).join('');
+
+                setDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                        <div>
+                            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 4px;">
+                                #${index + 1} Set ${set.set} - ${set.setFullName}
+                                ${index === 0 ? '<span style="margin-left: 12px; color: #000000; font-size: 16px;">👑 BEST</span>' : ''}
+                            </h3>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 28px; font-weight: 700;">${set.efficiencyScore.toFixed(0)}</div>
+                            <div style="font-size: 11px; color: #666666;">คะแนน</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <p style="font-size: 12px; color: #666666;">การ์ดทั้งหมด</p>
+                            <p style="font-size: 18px; font-weight: 600;">${set.totalCards} การ์ด</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666666;">Packs ที่ต้องเปิด</p>
+                            <p style="font-size: 14px; font-weight: 600;">${set.packs.join(', ')}</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 12px; color: #666666;">ประสิทธิภาพ</p>
+                            <p style="font-size: 18px; font-weight: 600;">${set.cardsPerPack.toFixed(1)} การ์ด/Pack</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <p style="font-size: 12px; color: #666666; margin-bottom: 8px;">การแบ่งตาม Rarity:</p>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            ${rarityBadges}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(setDiv);
+            });
+        }
+
+        function displayDataTable() {
+            const tbody = document.getElementById('dataTable');
+            tbody.innerHTML = '';
+
+            // Sort data first
+            const sortedData = [...analysisData.rawData].sort((a, b) => {
+                let aVal = a[currentSort.column];
+                let bVal = b[currentSort.column];
+                
+                // Handle number sorting
+                if (currentSort.column === 'Number') {
+                    aVal = parseInt(aVal) || 0;
+                    bVal = parseInt(bVal) || 0;
+                }
+                
+                // Handle string sorting
+                if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+                if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+                
+                if (currentSort.direction === 'asc') {
+                    return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                } else {
+                    return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+                }
+            });
+
+            sortedData.forEach((card, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight: 500;">${card.Set}</td>
+                    <td style="color: #666666;">#${card.Number}</td>
+                    <td>${card.Name}</td>
+                    <td>
+                        <span class="rarity-badge" style="background: ${card.Rarity === 'Shiny Super Rare' ? 'linear-gradient(to right, #e9d5ff, #fbcfe8, #fef3c7)' : getRarityColor(card.Rarity)}; color: ${getRarityTextColor(card.Rarity)}">
+                            ${card.Rarity}
+                        </span>
+                    </td>
+                    <td style="color: #666666;">${card.Packs}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function sortTable(column) {
+            // Update sort indicators
+            document.querySelectorAll('[id^="sort-"]').forEach(el => {
+                el.style.opacity = '0.3';
+                el.textContent = '▼';
+            });
+            
+            // Toggle direction if same column, otherwise reset to asc
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+            
+            // Update current column indicator
+            const indicator = document.getElementById(`sort-${column}`);
+            indicator.style.opacity = '1';
+            indicator.textContent = currentSort.direction === 'asc' ? '▲' : '▼';
+            
+            // Redisplay table with new sort
+            displayDataTable();
+        }
+
+        function getRarityColor(rarity) {
+            const colors = {
+                'Common': '#f3f4f6',  // gray-100
+                'Uncommon': '#dcfce7',  // green-100
+                'Rare': '#dbeafe',  // blue-100
+                'Double Rare': '#e9d5ff',  // purple-100
+                'Art Rare': '#fce7f3',  // pink-100
+                'Super Rare': '#fef3c7',  // yellow-200
+                'Special Art Rare': '#fbcfe8',  // pink-200
+                'Immersive Rare': '#fed7aa',  // orange-200
+                'Crown Rare': '#fde68a',  // amber-200
+                'Shiny': '#99f6e4',  // teal-200
+                'Shiny Super Rare': 'linear-gradient(to right, #e9d5ff, #fbcfe8, #fef3c7)'  // gradient
+            };
+            return colors[rarity] || '#f3f4f6';
+        }
+
+        function getRarityTextColor(rarity) {
+            const colors = {
+                'Common': '#4b5563',  // gray-600
+                'Uncommon': '#15803d',  // green-700
+                'Rare': '#1d4ed8',  // blue-700
+                'Double Rare': '#6b21a8',  // purple-700
+                'Art Rare': '#be185d',  // pink-700
+                'Super Rare': '#854d0e',  // yellow-800
+                'Special Art Rare': '#831843',  // pink-900
+                'Immersive Rare': '#9a3412',  // orange-800
+                'Crown Rare': '#78350f',  // amber-900
+                'Shiny': '#134e4a',  // teal-800
+                'Shiny Super Rare': '#312e81'  // indigo-900
+            };
+            return colors[rarity] || '#4b5563';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.add('hidden');
+        }
+
+        // Drag and drop functionality
+        const uploadArea = document.getElementById('uploadArea');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                handleFileUpload({ target: { files: files } });
+            }
+        });
+    </script>
+</body>
+</html>
